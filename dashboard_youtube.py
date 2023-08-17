@@ -81,7 +81,7 @@ def audience_simple(country):
     
 # function for loading datasets, changing data tpyes, feature engineering
 # keep in cache loaded data when refreshing site
-@st.cache
+@st.cache_data
 def load_data():
 #******************************************************************************
     ############################################################################## 
@@ -93,10 +93,12 @@ def load_data():
     ##############################################################################
     ## load metrics video without the 1st row having totals
     df_agg = pd.read_csv('Aggregated_Metrics_By_Video.csv').iloc[1:,:]
+    
     ## load additional data - subscribers or not / countries users from
     df_agg_sub = pd.read_csv('Aggregated_Metrics_By_Country_And_Subscriber_Status.csv')
     df_comments = pd.read_csv('Aggregated_Metrics_By_Video.csv')
     df_time = pd.read_csv('Video_Performance_Over_Time.csv')
+    
     ##############################################################################
     # CLEAN DATA
     # - rename columns
@@ -109,12 +111,20 @@ def load_data():
     
     # convert dtype from object to datetime for feature: video publish time
     # e.g. so we can filter/sort by this column
-    df_agg['Video publish time'] = pd.to_datetime(df_agg['Video publish time'])
-    # convert dtype from object to datetime with hours/minutes/seconds
+    #df_agg['Video publish time'] = pd.to_datetime(df_agg['Video publish time'])
+    # =============================================================================
+    # ValueError: time data "Nov 12, 2020" doesn't match format "%B %d, %Y", at position 1. You might want to try:
+    #     - passing `format` if your strings have a consistent format;
+    #     - passing `format='ISO8601'` if your strings are all ISO8601 but not necessarily in exactly the same format;
+    #     - passing `format='mixed'`, and the format will be inferred for each element individually. You might want to use `dayfirst` alongside this.
+    # =============================================================================
+    # updated code with this:
+    df_agg['Video publish time'] = pd.to_datetime(df_agg['Video publish time'], format='%b %d, %Y', errors='coerce')
+    
+    # Convert dtype from object to datetime with hours/minutes/seconds
     df_agg['Average view duration'] = df_agg['Average view duration'].apply(lambda x: datetime.strptime(x,'%H:%M:%S'))
-    # convert dtype from object to datetime for Date column
-    df_time['Date'] = pd.to_datetime(df_time['Date'])
-
+    # Convert dtype from object to datetime for Date column
+    df_time['Date'] = pd.to_datetime(df_time['Date'], format='%d %b %Y', errors='coerce')
     
     ##############################################################################
     # ENGINEER DATA
@@ -173,6 +183,7 @@ if add_sidebar == 'Aggregate Metrics':
     # create slice of top metrics to include for dashboard from dataframe 'df_agg'
     df_agg_metrics = df_agg[['Video publish time','Views','Likes','Subscribers','Shares','Comments added','RPM(USD)',
                              'Average % viewed', 'Avg_duration_sec', 'Engagement_ratio','Views / sub gained']]
+    
     # get date 6 months ago from max/latest date in data
     metric_date_6mo = df_agg_metrics['Video publish time'].max() - pd.DateOffset(months = 6)
     # get date 12 months ago from max/latest date in data
